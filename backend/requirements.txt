@@ -1,0 +1,6 @@
+# Resume Parser Dependencies
+pymupdf>=1.23.0          # PDF text extraction (fitz)
+python-docx>=1.1.0       # DOCX parsing
+python-dateutil>=2.8.2   # Date normalization
+phonenumbers>=8.13.0     # Phone number parsing
+email-validator>=2.1.0   # Email validation
