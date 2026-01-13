@@ -233,6 +233,22 @@ Examples:
                 print("\n📝 SECTION-BY-SECTION ADVICE:")
                 for section, advice in recs['section_advice'].items():
                     print(f"   {section.upper()}: {advice}")
+            
+            # PATH TO 100% - Step-by-step guide
+            if recs.get('path_to_100'):
+                print("\n" + "="*50)
+                print("🎯 PATH TO 100% MATCH")
+                print("="*50)
+                for step in recs['path_to_100']:
+                    print(f"\n   Step {step['step_number']}: {step['action']}")
+                    print(f"   Impact: {step.get('impact', 'N/A')}")
+                    if step.get('skills'):
+                        print(f"   Skills: {', '.join(step['skills'])}")
+                    if step.get('details'):
+                        for detail in step['details'][:2]:
+                            print(f"      → {detail}")
+                    if step.get('examples') and step['examples'][0]:
+                        print(f"      Example: \"{step['examples'][0][:60]}...\"")
         
         print("\n" + "="*50)
         

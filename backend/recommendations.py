@@ -21,6 +21,7 @@ def generate_detailed_recommendations(resume: Dict, jd: Dict, match_result: Dict
     recommendations = {
         'summary': '',
         'score_potential': 0,
+        'path_to_100': [],  # NEW: Step-by-step guide to 100%
         'must_add': [],
         'should_strengthen': [],
         'consider_adding': [],
@@ -35,9 +36,11 @@ def generate_detailed_recommendations(resume: Dict, jd: Dict, match_result: Dict
     missing_soft = match_result.get('missing', {}).get('soft', [])
     matched_hard = match_result.get('matches', {}).get('hard', [])
     current_score = match_result.get('match_summary', {}).get('overall_score', 0)
+    evidence_avg = match_result.get('match_summary', {}).get('evidence_avg', 0)
     
     # JD skills and responsibilities
     jd_hard_skills = set(s.lower() for s in jd.get('requirements', {}).get('hard', {}).get('skills', []))
+    jd_soft_skills = set(s.lower() for s in jd.get('requirements', {}).get('preferred', {}).get('skills', []))
     jd_responsibilities = jd.get('requirements', {}).get('hard', {}).get('responsibilities', [])
     
     # Resume skills
@@ -87,6 +90,18 @@ def generate_detailed_recommendations(resume: Dict, jd: Dict, match_result: Dict
     
     # 6. SECTION ADVICE
     recommendations['section_advice'] = _get_section_advice(resume, jd)
+    
+    # 7. PATH TO 100% - Clear numbered steps
+    recommendations['path_to_100'] = _generate_path_to_100(
+        current_score=current_score,
+        evidence_avg=evidence_avg,
+        missing_hard=missing_hard,
+        missing_soft=missing_soft,
+        should_strengthen=recommendations['should_strengthen'],
+        jd_hard_skills=jd_hard_skills,
+        jd_soft_skills=jd_soft_skills,
+        jd_responsibilities=jd_responsibilities
+    )
     
     # Calculate potential score
     potential_gain = len(missing_hard) * 7 + len([m for m in matched_hard if not m.get('in_experience')]) * 3
@@ -308,3 +323,127 @@ def _generate_summary(current_score: float, recommendations: Dict) -> str:
         return f"Partial match. Missing {must_add_count} critical skills. Follow the must-add list to improve from {current_score}% to {potential}%."
     else:
         return f"Significant gaps. This role requires skills not prominent in your resume. Add {must_add_count} must-have skills or consider a different role."
+
+
+def _generate_path_to_100(
+    current_score: float,
+    evidence_avg: float,
+    missing_hard: List[Dict],
+    missing_soft: List[Dict],
+    should_strengthen: List[Dict],
+    jd_hard_skills: set,
+    jd_soft_skills: set,
+    jd_responsibilities: List[str]
+) -> List[Dict]:
+    """
+    Generate step-by-step path to achieve 100% match.
+    
+    Returns list of numbered steps with:
+    - step_number
+    - action: what to do
+    - impact: expected score gain
+    - details: specific instructions
+    - example: concrete example if applicable
+    """
+    steps = []
+    step_num = 1
+    running_score = current_score
+    
+    # Step 1: Add missing required skills (biggest impact)
+    if missing_hard:
+        skill_list = [m['skill'] for m in missing_hard]
+        per_skill_impact = round(50 / max(len(jd_hard_skills), 1), 1)  # Hard skills = 50% of score
+        
+        steps.append({
+            'step_number': step_num,
+            'action': f"Add {len(missing_hard)} missing required skill(s) to your resume",
+            'skills': skill_list,
+            'impact': f"+{round(per_skill_impact * len(missing_hard))}% score",
+            'details': [
+                f"Add to Skills section: {', '.join(skill_list)}",
+                "Also add each skill to at least 1-2 experience bullets with context"
+            ],
+            'examples': [
+                _get_skill_bullet_example(skill_list[0]) if skill_list else None
+            ]
+        })
+        running_score += per_skill_impact * len(missing_hard)
+        step_num += 1
+    
+    # Step 2: Strengthen skills that are only in Skills section
+    if should_strengthen:
+        weak_skills = [s['skill'] for s in should_strengthen]
+        
+        steps.append({
+            'step_number': step_num,
+            'action': f"Move {len(weak_skills)} skill(s) from Skills section to Experience bullets",
+            'skills': weak_skills,
+            'impact': f"+{len(weak_skills) * 3}% score",
+            'details': [
+                f"These skills are listed but not demonstrated: {', '.join(weak_skills)}",
+                "Add each skill to 2-3 experience bullets with action verbs and metrics"
+            ],
+            'examples': [
+                _get_skill_bullet_example(weak_skills[0]) if weak_skills else None
+            ]
+        })
+        running_score += len(weak_skills) * 3
+        step_num += 1
+    
+    # Step 3: Improve evidence score
+    if evidence_avg < 0.7:
+        steps.append({
+            'step_number': step_num,
+            'action': "Improve evidence quality in experience bullets",
+            'current': f"Evidence score: {evidence_avg}",
+            'target': "Target: 0.8+",
+            'impact': f"+{round((0.8 - evidence_avg) * 20)}% score",
+            'details': [
+                "Add quantified metrics (percentages, numbers, scale)",
+                "Start bullets with action verbs (Developed, Built, Optimized)",
+                "Include specific technologies and tools used"
+            ],
+            'examples': [
+                "Before: 'Worked on backend systems'",
+                "After: 'Developed Python microservices handling 10K requests/sec, reducing latency by 40%'"
+            ]
+        })
+        running_score += (0.8 - evidence_avg) * 20
+        step_num += 1
+    
+    # Step 4: Add soft skills if missing
+    if missing_soft:
+        soft_skill_list = [m['skill'] for m in missing_soft[:3]]
+        
+        steps.append({
+            'step_number': step_num,
+            'action': f"Add preferred/soft skills to boost score further",
+            'skills': soft_skill_list,
+            'impact': f"+{len(soft_skill_list) * 2}% score",
+            'details': [
+                f"Nice-to-have skills: {', '.join(soft_skill_list)}",
+                "Add if you have relevant experience, otherwise skip"
+            ],
+            'examples': []
+        })
+        running_score += len(soft_skill_list) * 2
+        step_num += 1
+    
+    # Final step: Polish and verify
+    if running_score < 100:
+        remaining = round(100 - running_score)
+        steps.append({
+            'step_number': step_num,
+            'action': "Final polish for remaining points",
+            'impact': f"+{remaining}% to reach 100%",
+            'details': [
+                "Add more experience bullets (4-6 per job)",
+                "Include relevant projects demonstrating JD skills",
+                "Match JD terminology exactly (keywords matter)",
+                "Ensure skills appear in multiple sections for reinforcement"
+            ],
+            'examples': []
+        })
+    
+    return steps
+

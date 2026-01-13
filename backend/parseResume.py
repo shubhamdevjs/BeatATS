@@ -31,6 +31,7 @@ from parsers import (
 from parsers.section_detector import get_header_portion
 from parsers.projects_parser import parse_awards
 from indexer import build_term_index, collect_evidence, calculate_parse_quality
+from employment_classifier import classify_all_experience
 
 
 SCHEMA_VERSION = "1.0"
@@ -100,7 +101,11 @@ def parse_resume(file_path: str) -> Dict[str, Any]:
     
     # Experience
     exp_content = sections_detected.get('experience', {}).get('content', '')
-    sections['experience'] = parse_experience(exp_content)
+    raw_experience = parse_experience(exp_content)
+    
+    # Classify employment types and calculate totals
+    classified_experience, experience_totals = classify_all_experience(raw_experience)
+    sections['experience'] = classified_experience
     
     # Education
     edu_content = sections_detected.get('education', {}).get('content', '')
@@ -139,6 +144,7 @@ def parse_resume(file_path: str) -> Dict[str, Any]:
         'parse_quality': parse_quality,
         'profile': profile,
         'sections': sections,
+        'experience_totals': experience_totals,
         'index': index,
         'evidence': evidence
     }

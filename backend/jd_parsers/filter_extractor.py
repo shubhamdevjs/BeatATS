@@ -24,11 +24,14 @@ LOCATION_PATTERNS = [
     r'(?:work|working)\s+(?:from|in)\s+([A-Za-z\s,]+)',
 ]
 
-# Experience patterns
+# Experience patterns - ordered by specificity (more specific first)
 EXPERIENCE_PATTERNS = [
     r'(\d+)\s*-\s*(\d+)\+?\s*(?:years?|yrs?)',  # Range: 0-2 years, 0-2+ years, 3-5 years
     r'(\d+)\+?\s*(?:years?|yrs?)\s+(?:of\s+)?(?:experience|exp)',  # X+ years of experience
     r'(?:minimum|at\s+least)\s+(\d+)\s*(?:years?|yrs?)',  # minimum X years
+    r'(\d+)\+?\s*(?:years?|yrs?)\s+of\s+\w+',  # X+ years of [anything] (e.g., "3+ years of Oracle")
+    r'(\d+)\+?\s*(?:years?|yrs?)\s+(?:relevant|professional|industry|hands-on|working)',  # X+ years relevant
+    r'(\d+)\+?\s*(?:years?|yrs?)\s+in\s+\w+',  # X years in [field]
 ]
 
 # Degree patterns

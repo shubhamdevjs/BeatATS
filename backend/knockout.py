@@ -186,13 +186,14 @@ def _check_location(resume: Dict, filter_data: Dict) -> Dict:
 
 
 def _check_experience(resume: Dict, filter_data: Dict) -> Dict:
-    """Check years of experience requirement."""
+    """Check years of experience requirement using classified experience totals."""
     result = {
         'rule': 'years_experience',
         'jd_value': None,
         'resume_value': None,
         'status': 'pass',
-        'message': None
+        'message': None,
+        'breakdown': None
     }
     
     min_years = filter_data.get('min_years') if filter_data else None
@@ -203,40 +204,48 @@ def _check_experience(resume: Dict, filter_data: Dict) -> Dict:
     
     result['jd_value'] = f"{min_years}+ years"
     
-    # Calculate experience from resume
-    experience = resume.get('sections', {}).get('experience', [])
-    total_months = 0
+    # Get experience totals from resume (computed by employment classifier)
+    totals = resume.get('experience_totals', {})
     
-    for job in experience:
-        dates = job.get('dates', {})
-        start = dates.get('start')
-        end = dates.get('end')
-        
-        if start:
-            try:
-                start_dt = date_parser.parse(start)
-                if end:
-                    end_dt = date_parser.parse(end)
-                else:
-                    end_dt = datetime.now()
-                
-                months = (end_dt.year - start_dt.year) * 12 + (end_dt.month - start_dt.month)
-                total_months += max(0, months)
-            except:
-                pass
-    
-    total_years = round(total_months / 12, 1)
-    result['resume_value'] = f"{total_years} years"
-    
-    if total_years >= min_years:
-        result['status'] = 'pass'
-        result['message'] = f'Experience ({total_years} years) meets requirement ({min_years}+ years)'
-    elif total_years >= min_years * 0.8:  # Within 80%
-        result['status'] = 'risk'
-        result['message'] = f'Experience ({total_years} years) is slightly below requirement ({min_years}+ years)'
-    else:
+    if not totals:
+        # Fallback to old calculation if totals not available
+        result['resume_value'] = '0 years'
         result['status'] = 'fail'
-        result['message'] = f'Experience ({total_years} years) does not meet requirement ({min_years}+ years)'
+        result['message'] = 'No experience data found'
+        return result
+    
+    # Get different experience measures
+    full_time_years = totals.get('full_time_years', 0)
+    internship_years = totals.get('internship_years', 0)
+    total_years = totals.get('total_years_all', 0)
+    weighted_years = totals.get('weighted_years', 0)
+    
+    # Add breakdown for transparency
+    result['breakdown'] = {
+        'full_time_years': full_time_years,
+        'internship_years': internship_years,
+        'total_years_all': total_years,
+        'weighted_years_ats': weighted_years
+    }
+    
+    # Primary check: use weighted years for ATS simulation
+    result['resume_value'] = f"{weighted_years} years (weighted) / {full_time_years} full-time"
+    
+    # Check against requirement
+    if weighted_years >= min_years:
+        result['status'] = 'pass'
+        result['message'] = f'Weighted experience ({weighted_years} years) meets requirement ({min_years}+ years)'
+    elif weighted_years >= min_years * 0.8:  # Within 80%
+        result['status'] = 'risk'
+        result['message'] = f'Weighted experience ({weighted_years} years) is slightly below requirement ({min_years}+ years). Full-time only: {full_time_years} years'
+    else:
+        # Additional check: if JD likely wants full-time only
+        if full_time_years >= min_years:
+            result['status'] = 'risk'
+            result['message'] = f'Full-time experience ({full_time_years} years) meets requirement, but weighted total ({weighted_years}) is low'
+        else:
+            result['status'] = 'fail'
+            result['message'] = f'Experience does not meet requirement. Weighted: {weighted_years} years, Full-time: {full_time_years} years, Required: {min_years}+'
     
     return result
 
